@@ -1,0 +1,3 @@
+import "./globals.css";
+export const metadata={title:"Skill Gap Calculator | Career clarity, built around you",description:"A student-first skill assessment and career planning platform."};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body><header className="nav"><a className="brand" href="/">SKILL<span>GAP</span> / CALCULATOR</a><nav className="links"><a href="/about">About</a><a href="/how-it-works">How it works</a><a href="/careers">Careers</a><a href="/courses">Courses</a><a href="/dashboard">Dashboard</a></nav><a className="btn" href="/login">Get started</a></header>{children}</body></html>}

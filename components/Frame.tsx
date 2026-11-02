@@ -1,0 +1,1 @@
+export function Frame({children}:{children:React.ReactNode}){return <main className="shell">{children}<footer className="footer">SKILL GAP CALCULATOR · Built for students finding their next step.<br/><small>Career matches are guidance, not guarantees of employment or validated psychometric results.</small></footer></main>}
