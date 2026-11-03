@@ -135,7 +135,11 @@ export default function Assessment() {
 
       setMsg(
         error
-          ? Unable to save: ${error.message}
+         setMsg(
+        error
+          ? `Unable to save: ${error.message}`
+          : "Progress saved to your account."
+      );
           : "Progress saved to your account."
       );
     } catch {
