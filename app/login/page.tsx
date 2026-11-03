@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,7 +29,7 @@ export default function Login() {
 
     try {
       if (signup) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
           options: {
@@ -42,9 +42,13 @@ export default function Login() {
 
         if (error) throw error;
 
-        setMsg(
-          "Registration submitted! Check your email for the verification link."
-        );
+        if (data.session) {
+          router.push("/dashboard");
+          router.refresh();
+        } else {
+          setMsg("Account created! Please log in using your roll number and password.");
+          setSignup(false);
+        }
       } else {
         const response = await fetch("/api/login", {
           method: "POST",
@@ -73,7 +77,9 @@ export default function Login() {
       }
     } catch (error) {
       setMsg(
-        error instanceof Error ? error.message : "Something went wrong."
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
       );
     } finally {
       setLoading(false);
@@ -86,7 +92,9 @@ export default function Login() {
         className="card"
         style={{ maxWidth: 480, margin: "30px auto" }}
       >
-        <div className="eyebrow">CGC University • Student Access</div>
+        <div className="eyebrow">
+          CGC University • Student Access
+        </div>
 
         <h1>{signup ? "Create your account" : "Welcome back"}</h1>
 
