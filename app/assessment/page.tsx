@@ -91,7 +91,7 @@ export default function Assessment() {
 
     (stage.skills || []).forEach((skill) => {
       if (ratings[skill] === undefined) {
-      newErrors[`rating:${skill}`] = "Please select a rating.";
+        newErrors[`rating:${skill}`] = "Please select a rating.";
       }
     });
 
@@ -135,11 +135,7 @@ export default function Assessment() {
 
       setMsg(
         error
-         setMsg(
-        error
           ? `Unable to save: ${error.message}`
-          : "Progress saved to your account."
-      );
           : "Progress saved to your account."
       );
     } catch {
@@ -210,7 +206,7 @@ export default function Assessment() {
             <select
               className="field"
               value={ratings[skill] ?? ""}
-              aria-invalid={!!errors[rating:${skill}]}
+              aria-invalid={!!errors[`rating:${skill}`]}
               onChange={(e) => {
                 setRatings((r) => ({
                   ...r,
@@ -218,12 +214,12 @@ export default function Assessment() {
                 }));
                 setErrors((old) => ({
                   ...old,
-                  [rating:${skill}]: "",
+                  [`rating:${skill}`]: "",
                 }));
                 setMsg("");
               }}
               style={{
-                borderColor: errors[rating:${skill}]
+                borderColor: errors[`rating:${skill}`]
                   ? "#ef4444"
                   : undefined,
               }}
@@ -245,9 +241,9 @@ export default function Assessment() {
               ))}
             </select>
 
-            {errors[rating:${skill}] && (
+            {errors[`rating:${skill}`] && (
               <small style={{ color: "#ef4444" }}>
-                {errors[rating:${skill}]}
+                {errors[`rating:${skill}`]}
               </small>
             )}
           </div>
