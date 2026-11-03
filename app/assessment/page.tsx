@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Frame } from "@/components/Frame";
 import { supabase } from "@/lib/supabase";
 
@@ -28,17 +29,11 @@ const stages: Stage[] = [
   },
   {
     title: "Technical skills",
-    skills: [
-      "Excel", "SQL", "Python", "Financial accounting",
-      "PowerPoint", "Data visualisation",
-    ],
+    skills: ["Excel", "SQL", "Python", "Financial accounting", "PowerPoint", "Data visualisation"],
   },
   {
     title: "People skills",
-    skills: [
-      "Communication", "Teamwork", "Problem solving",
-      "Leadership", "Time management",
-    ],
+    skills: ["Communication", "Teamwork", "Problem solving", "Leadership", "Time management"],
   },
   {
     title: "Practical experience",
@@ -66,17 +61,19 @@ const requiredFields = [
 ];
 
 export default function Assessment() {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [msg, setMsg] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
   const stage = stages[step];
 
-  function setAnswer(k: string, v: string) {
-    setAnswers((a) => ({ ...a, [k]: v }));
-    setErrors((e) => ({ ...e, [k]: "" }));
+  function setAnswer(key: string, value: string) {
+    setAnswers((old) => ({ ...old, [key]: value }));
+    setErrors((old) => ({ ...old, [key]: "" }));
     setMsg("");
   }
 
@@ -97,59 +94,127 @@ export default function Assessment() {
 
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length > 0) {
-      setMsg("Please complete all required fields before continuing.");
+    if (Object.keys(newErrors).length) {
+      setMsg("Please complete all required fields.");
       return false;
     }
 
-    setMsg("");
     return true;
   }
 
-  async function save() {
-    try {
-      if (!supabase) {
-        localStorage.setItem(
-          "sgc-assessment",
-          JSON.stringify({ answers, ratings, step })
-        );
-        setMsg("Progress saved in this browser.");
-        return;
-      }
-
-      const { data, error: authError } = await supabase.auth.getUser();
-
-      if (authError || !data.user) {
-        setMsg("Please log in before saving to your account.");
-        return;
-      }
-
-      const { error } = await supabase
-        .from("assessments")
-        .upsert({
-          student_id: data.user.id,
-          status: "in_progress",
-          current_stage: step + 1,
-          answers: { ...answers, ratings },
-        });
-
-      setMsg(
-        error
-          ? `Unable to save: ${error.message}`
-          : "Progress saved to your account."
+  async function saveAssessment(
+    nextStep: number,
+    status: "in_progress" | "completed"
+  ) {
+    if (!supabase) {
+      localStorage.setItem(
+        "sgc-assessment",
+        JSON.stringify({ answers, ratings, step: nextStep })
       );
+      return true;
+    }
+
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser();
+
+    if (authError || !authData.user) {
+      setMsg("Please log in before saving your assessment.");
+      return false;
+    }
+
+    const payload = {
+      student_id: authData.user.id,
+      status,
+      current_stage: nextStep,
+      answers: { ...answers, ratings },
+    };
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("assessments")
+      .select("id")
+      .eq("student_id", authData.user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) {
+      setMsg("Unable to check your saved assessment: " + lookupError.message);
+      return false;
+    }
+
+    const result = existing?.id
+      ? await supabase
+          .from("assessments")
+          .update(payload)
+          .eq("id", existing.id)
+          .eq("student_id", authData.user.id)
+      : await supabase.from("assessments").insert(payload);
+
+    if (result.error) {
+      setMsg("Unable to save: " + result.error.message);
+      return false;
+    }
+
+    return true;
+  }
+
+  async function saveProgress() {
+    setLoading(true);
+    setMsg("");
+
+    try {
+      const saved = await saveAssessment(step + 1, "in_progress");
+      if (saved) setMsg("Progress saved successfully!");
     } catch {
-      setMsg("Something went wrong while saving. Please try again.");
+      setMsg("Something went wrong while saving.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function nextStage() {
+  async function nextStage() {
     if (!validateStage()) return;
-    setStep((s) => s + 1);
+
+    setLoading(true);
+    setMsg("");
+
+    try {
+      const next = step + 1;
+      const saved = await saveAssessment(next, "in_progress");
+
+      if (saved) {
+        setStep(next);
+        setErrors({});
+        setMsg("");
+      }
+    } catch {
+      setMsg("Unable to save your progress. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function finishAssessment() {
+    if (!validateStage()) return;
+
+    setLoading(true);
+    setMsg("");
+
+    try {
+      const saved = await saveAssessment(6, "completed");
+
+      if (saved) {
+        router.push("/results");
+        router.refresh();
+      }
+    } catch {
+      setMsg("Unable to submit your assessment. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function previousStage() {
-    setStep((s) => Math.max(0, s - 1));
+    setStep((old) => Math.max(0, old - 1));
     setErrors({});
     setMsg("");
   }
@@ -190,9 +255,7 @@ export default function Assessment() {
             />
 
             {errors[key] && (
-              <small style={{ color: "#ef4444" }}>
-                {errors[key]}
-              </small>
+              <small style={{ color: "#ef4444" }}>{errors[key]}</small>
             )}
           </label>
         ))}
@@ -208,8 +271,8 @@ export default function Assessment() {
               value={ratings[skill] ?? ""}
               aria-invalid={!!errors[`rating:${skill}`]}
               onChange={(e) => {
-                setRatings((r) => ({
-                  ...r,
+                setRatings((old) => ({
+                  ...old,
                   [skill]: Number(e.target.value),
                 }));
                 setErrors((old) => ({
@@ -260,43 +323,41 @@ export default function Assessment() {
         >
           <button
             className="btn secondary"
-            disabled={step === 0}
+            disabled={step === 0 || loading}
             onClick={previousStage}
           >
             Back
           </button>
 
-          <button className="btn secondary" onClick={save}>
+          <button
+            className="btn secondary"
+            disabled={loading}
+            onClick={saveProgress}
+          >
             Save progress
           </button>
 
           {step < 5 ? (
-            <button className="btn" onClick={nextStage}>
-              Continue →
+            <button
+              className="btn"
+              disabled={loading}
+              onClick={nextStage}
+            >
+              {loading ? "Saving..." : "Continue →"}
             </button>
           ) : (
-            <a
+            <button
               className="btn"
-              href="/results"
-              onClick={(e) => {
-                if (!validateStage()) e.preventDefault();
-              }}
+              disabled={loading}
+              onClick={finishAssessment}
             >
-              View preview results →
-            </a>
+              {loading ? "Submitting..." : "Submit assessment →"}
+            </button>
           )}
         </div>
 
         {msg && (
-          <p
-            role="status"
-            style={{
-              color: errors && Object.values(errors).some(Boolean)
-                ? "#ef4444"
-                : undefined,
-              marginTop: 16,
-            }}
-          >
+          <p role="status" style={{ marginTop: 16 }}>
             {msg}
           </p>
         )}
