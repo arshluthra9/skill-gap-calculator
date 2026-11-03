@@ -29,7 +29,7 @@ const courses: Course[] = [
     platform: "SQLBolt",
     skill: "SQL",
     level: "Beginner",
-    access: "Free lessons",
+    access: "Free interactive lessons",
     certificate: "No certificate advertised",
     url: "https://sqlbolt.com/",
   },
@@ -56,7 +56,7 @@ const courses: Course[] = [
     platform: "HubSpot Academy",
     skill: "Marketing",
     level: "Beginner",
-    access: "Free course",
+    access: "Free learning resources",
     certificate: "Certificate on selected courses",
     url: "https://academy.hubspot.com/",
   },
@@ -89,8 +89,11 @@ const courses: Course[] = [
   },
 ];
 
+const completionPrefix = "Completed course: ";
+
 export default function Courses() {
   const [loading, setLoading] = useState(true);
+  const [savingCourse, setSavingCourse] = useState("");
   const [message, setMessage] = useState("");
   const [weakSkills, setWeakSkills] = useState<string[]>([]);
   const [completedCourses, setCompletedCourses] = useState<string[]>([]);
@@ -101,6 +104,9 @@ export default function Courses() {
   }, []);
 
   async function loadCourses() {
+    setLoading(true);
+    setMessage("");
+
     if (!supabase) {
       setMessage("Supabase is not configured.");
       setLoading(false);
@@ -108,27 +114,33 @@ export default function Courses() {
     }
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
 
-      if (!userData.user) {
+      if (userError || !userData.user) {
         setMessage("Please log in to see your personalised courses.");
         setLoading(false);
         return;
       }
 
-      const { data: assessment, error } = await supabase
-        .from("assessments")
-        .select("answers")
-        .eq("student_id", userData.user.id)
-        .eq("status", "completed")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const userId = userData.user.id;
 
-      if (error) throw error;
+      const { data: assessment, error: assessmentError } =
+        await supabase
+          .from("assessments")
+          .select("answers")
+          .eq("student_id", userId)
+          .eq("status", "completed")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (assessmentError) throw assessmentError;
 
       if (!assessment) {
-        setMessage("Complete your skill assessment to get personalised course recommendations.");
+        setMessage(
+          "Complete your skill assessment to get personalised course recommendations."
+        );
         setLoading(false);
         return;
       }
@@ -142,21 +154,28 @@ export default function Courses() {
 
       setWeakSkills(gaps);
 
-      // Load previously completed courses from the student's progress.
-      const { data: progress, error: progressError } = await supabase
-        .from("progress_entries")
-        .select("title")
-        .eq("student_id", userData.user.id);
+      const { data: progress, error: progressError } =
+        await supabase
+          .from("progress_entries")
+          .select("activity")
+          .eq("student_id", userId);
 
       if (progressError) throw progressError;
 
-      setCompletedCourses(
-        (progress || [])
-          .map((item: any) => item.title)
-          .filter(Boolean)
-      );
+      const completed = (progress || [])
+        .map((item: { activity: string }) => {
+          if (!item.activity?.startsWith(completionPrefix)) {
+            return null;
+          }
+
+          return item.activity.slice(completionPrefix.length);
+        })
+        .filter((title): title is string => Boolean(title));
+
+      setCompletedCourses(completed);
     } catch (error: unknown) {
       console.error("Course finder error:", error);
+
       setMessage(
         error instanceof Error
           ? error.message
@@ -173,34 +192,47 @@ export default function Courses() {
       return;
     }
 
-    const { data: userData } = await supabase.auth.getUser();
-
-    if (!userData.user) {
-      setMessage("Please log in first.");
-      return;
-    }
-
     if (completedCourses.includes(course.title)) return;
 
-    const { error } = await supabase
-      .from("progress_entries")
-      .insert({
-        student_id: userData.user.id,
-        title: course.title,
-        status: "completed",
-      });
+    setSavingCourse(course.title);
+    setMessage("");
 
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+
+      if (userError || !userData.user) {
+        throw new Error("Please log in first.");
+      }
+
+      const { error: insertError } = await supabase
+        .from("progress_entries")
+        .insert({
+          student_id: userData.user.id,
+          skill_id: null,
+          activity: `${completionPrefix}${course.title}`,
+          completed_at: new Date().toISOString(),
+        });
+
+      if (insertError) throw insertError;
+
+      setCompletedCourses((previous) => [
+        ...previous,
+        course.title,
+      ]);
+
+      setMessage(`${course.title} marked as completed!`);
+    } catch (error: unknown) {
+      console.error("Course completion error:", error);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save course completion."
+      );
     }
 
-    setCompletedCourses((previous) => [
-      ...previous,
-      course.title,
-    ]);
-
-    setMessage("Course marked as completed!");
+    setSavingCourse("");
   }
 
   const recommended = courses.filter((course) =>
@@ -224,7 +256,7 @@ export default function Courses() {
 
       <p className="muted">
         Courses are matched to skills you may want to improve.
-        Check the provider's current access and certificate terms.
+        Check each provider's current access and certificate terms.
       </p>
 
       {loading ? (
@@ -334,12 +366,17 @@ export default function Courses() {
 
                     <button
                       className="button"
-                      disabled={isCompleted}
+                      disabled={
+                        isCompleted ||
+                        savingCourse === course.title
+                      }
                       onClick={() => markCompleted(course)}
                     >
                       {isCompleted
                         ? "✓ Completed"
-                        : "Mark as completed"}
+                        : savingCourse === course.title
+                          ? "Saving..."
+                          : "Mark as completed"}
                     </button>
                   </div>
                 </div>
@@ -348,10 +385,8 @@ export default function Courses() {
           </div>
 
           <p className="muted" style={{ marginTop: 24 }}>
-            Course recommendations are based on self-reported
-            assessment ratings. Course access, pricing and
-            certificates may change; verify details with each
-            provider before enrolling.
+            Recommendations use self-reported assessment ratings.
+            Course access, pricing and certificates may change.
           </p>
         </>
       )}
