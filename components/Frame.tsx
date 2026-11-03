@@ -93,12 +93,31 @@ export function Frame({
         {children}
 
         <footer className="footer">
-          SKILL GAP CALCULATOR · Built for students finding their next step.
-          <br />
+          <div style={{ marginBottom: 10 }}>
+            SKILL GAP CALCULATOR · Built for students finding their next step.
+          </div>
+
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              marginBottom: 10,
+            }}
+          >
+            Created with purpose by{" "}
+            <span style={{ color: "var(--accent)" }}>
+              Arshpreet Singh Luthra
+            </span>
+          </div>
+
           <small>
             Career matches are guidance, not guarantees of employment or
             validated psychometric results.
           </small>
+
+          <div style={{ marginTop: 14, fontSize: 12, opacity: 0.7 }}>
+            © 2026 Skill Gap Calculator. All rights reserved.
+          </div>
         </footer>
       </main>
     </>
