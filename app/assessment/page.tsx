@@ -91,7 +91,7 @@ export default function Assessment() {
 
     (stage.skills || []).forEach((skill) => {
       if (ratings[skill] === undefined) {
-        newErrors[rating:${skill}] = "Please select a rating.";
+      newErrors[`rating:${skill}`] = "Please select a rating.";
       }
     });
 
