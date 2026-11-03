@@ -21,6 +21,7 @@ export function Frame({
     { name: "Courses", href: "/courses" },
     { name: "Learning Roadmap", href: "/roadmap" },
     { name: "Progress", href: "/progress" },
+    { name: "Admin", href: "/admin" },
   ];
 
   return (
