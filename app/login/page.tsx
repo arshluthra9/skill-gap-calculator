@@ -11,6 +11,7 @@ export default function Login() {
   const [signup, setSignup] = useState(false);
   const [fullName, setFullName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
+  const [registrationCode, setRegistrationCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -36,6 +37,7 @@ export default function Login() {
             data: {
               full_name: fullName.trim(),
               roll_number: rollNumber.trim().toUpperCase(),
+              registration_code: registrationCode.trim().toUpperCase(),
             },
           },
         });
@@ -88,19 +90,14 @@ export default function Login() {
 
   return (
     <Frame>
-      <div
-        className="card"
-        style={{ maxWidth: 480, margin: "30px auto" }}
-      >
-        <div className="eyebrow">
-          CGC University • Student Access
-        </div>
+      <div className="card" style={{ maxWidth: 480, margin: "30px auto" }}>
+        <div className="eyebrow">CGC University • Student Access</div>
 
         <h1>{signup ? "Create your account" : "Welcome back"}</h1>
 
         <p className="muted">
           {signup
-            ? "Register using your approved CGC roll number."
+            ? "Register using your approved CGC roll number and unique code."
             : "Log in using your college roll number."}
         </p>
 
@@ -128,6 +125,18 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Personal or college email"
+                />
+              </label>
+
+              <label className="label">
+                Registration code
+                <input
+                  className="field"
+                  type="text"
+                  required
+                  value={registrationCode}
+                  onChange={(e) => setRegistrationCode(e.target.value)}
+                  placeholder="Enter your unique CGC code"
                 />
               </label>
             </>
